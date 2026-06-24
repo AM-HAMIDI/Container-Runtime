@@ -1,0 +1,4 @@
+https://linuxgd.medium.com/expert-guide-to-namespaces-in-linux-in-linux-041b318f553d
+https://blog.quarkslab.com/digging-into-linux-namespaces-part-1.html
+https://www.toptal.com/developers/linux/separation-anxiety-isolating-your-system-with-linux-namespaces
+https://www.schutzwerk.com/en/blog/linux-container-namespaces01-intro/
