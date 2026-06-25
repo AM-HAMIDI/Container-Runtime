@@ -1,0 +1,25 @@
+1 - To get current process PID Namespace inode number : 
+readlink /proc/self/ns/pid
+# Example output: pid:[4026531836]
+
+# Or with more detail
+ls -l /proc/self/ns/pid
+# Output: lrwxrwxrwx 1 root root 0 ... pid:[4026531836]
+
+2 - To List PID Namespaces : 
+lsns -t pid
+
+3 - List Namespaces for a specific process : 
+# For a given PID
+lsns -p <PID> -t pid
+
+# Or using ps
+ps -o pid,pidns,comm -p <PID>
+
+4 - Full Namespace tree for a process : 
+cat /proc/<PID>/status | grep -E 'NSpid|Pid:'
+
+5 - Get current process in all NS : 
+cat /proc/self/status | grep NSpid
+
+// getpid() will get the current process's pid in the NS which process see
