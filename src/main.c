@@ -4,78 +4,74 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <unistd.h>
-// #include "typedefs.h"
+#include <string.h>
+
+#include "config_handler.h"
 
 // TODO : Dynamic stack size for each root filesystem
 #define STACK_SIZE (1024 * 1024)    // 1MB stack for the cloned process
 #define INTERACTIVE_SHELL "/bin/sh" // Interactive Shell for current linux
 
-int container_main(void *arg);
-
-// This function acts as the "main" for our containerized child process
 int container_main(void *arg)
 {
-    printf("[Container] Child process started!\n");
+    container_config *config = (container_config *)arg;
 
-    // Because of CLONE_NEWPID, this should print 1
-    printf("[Container] My PID is: %d\n", getpid());
+    printf("[Container] Process started (PID: %d)\n", getpid());
 
-    // Because of CLONE_NEWUTS, changing the hostname won't affect the host
-    char *new_hostname = "my-alpine-container";
-    if (sethostname(new_hostname, strlen(new_hostname)) != 0)
+    // If the config file didn't have a hostname, use the CMake default
+    char *target_hostname = strlen(config->hostname) > 0 ? config->hostname : DEFAULT_CONTAINER_NAME;
+
+    if (sethostname(target_hostname, strlen(target_hostname)) != 0)
     {
         perror("sethostname failed");
         return -1;
     }
-    printf("[Container] Hostname isolated and set to: %s\n", new_hostname);
+    printf("[Container] Hostname set to: %s\n", target_hostname);
 
-    // Execute an interactive shell.
-    // Note: It's still using the host's filesystem (Step 2 will fix this)
     char *cmd[] = {"/bin/sh", NULL};
     execvp(cmd[0], cmd);
 
-    // execvp only returns if it fails
     perror("execvp failed");
     return -1;
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    printf("[Host] Starting container runtime...\n");
-    printf("[Host] Host PID is: %d\n", getpid());
+    printf("[Host] Starting runtime...\n");
 
-    // 1. Allocate memory for the child's stack on the heap
-    char *stack = malloc(STACK_SIZE);
-    if (stack == NULL)
+    // Allow user to pass a custom config path via CLI, otherwise use CMake default
+    const char *config_path = (argc > 1) ? argv[1] : DEFAULT_CONFIG_PATH;
+    printf("[Host] Loading configuration from: %s\n", config_path);
+
+    container_config config = {0};
+    if (load_config(config_path, &config) != 0)
     {
-        perror("malloc failed");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "Failed to load configuration. Exiting.\n");
+        return EXIT_FAILURE;
     }
 
-    // 2. Call clone() to create the isolated process
-    // Flags:
-    // CLONE_NEWPID: Gives the child a brand new PID tree (it becomes PID 1)
-    // CLONE_NEWUTS: Gives the child a private hostname/domain name
-    // SIGCHLD: Tells the kernel to send a signal to the parent when the child exits
-    // Stack pointer: Points to the END of the allocated block (stack + STACK_SIZE)
+    char *stack = malloc(STACK_SIZE);
+    if (!stack)
+    {
+        perror("malloc failed");
+        return EXIT_FAILURE;
+    }
+
     int child_pid = clone(container_main,
                           stack + STACK_SIZE,
                           CLONE_NEWPID | CLONE_NEWUTS | SIGCHLD,
-                          NULL);
+                          &config);
 
     if (child_pid == -1)
     {
-        perror("clone failed - (Did you run with sudo?)");
-        exit(EXIT_FAILURE);
+        perror("clone failed");
+        free(stack);
+        return EXIT_FAILURE;
     }
 
-    printf("[Host] Created container process with Host-level PID: %d\n", child_pid);
-
-    // 3. Wait for the container process to exit
     waitpid(child_pid, NULL, 0);
-    printf("[Host] Container exited. Cleaning up.\n");
+    printf("[Host] Container exited.\n");
 
-    // 4. Clean up allocated memory
     free(stack);
     return 0;
 }
