@@ -31,11 +31,11 @@ typedef enum
 
 #define CLI_MESSAGE(OPTION) CLI_MESSAGE_##OPTION
 
-static short relative_path_enabled = FALSE;
+extern short relative_path_enabled;
 
-void run_cli(void);
+void run_cli(int argc, char **argv);
 void set_config_path(const char *config_path);
 void enable_relative_path(void);
 void run_help(void);
 
-#endif CLI_H
+#endif // CLI_H

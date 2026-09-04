@@ -8,6 +8,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 
+#include "cli.h" // Added missing cli.h
 #include "config_manager.h"
 #include "typedefs.h"
 #include "verifier.h"
@@ -21,7 +22,7 @@ int mount_rootfs(void);
 int chroot_fs(const char *rootfs_path);
 int chdir_fs(void);
 int mkdir_procfs(void);
-int run_shell(void);
+int run_shell(const char *interactive_shell);
 
 /*
     Container main start point
@@ -37,7 +38,7 @@ int container_main(void *arg)
     isolate_fs(config->rootfs_path);
 
     // 3 - Run new shell
-    run_shell();
+    run_shell(config->interactive_shell);
 
     perror("execvp failed");
     return -1;
@@ -48,6 +49,11 @@ int container_main(void *arg)
 */
 int set_hostname(const char *hostname)
 {
+// Fallback to DEFAULT_HOSTNAME defined in config_manager.h if CMake definition is missing
+#ifndef DEFAULT_CONTAINER_NAME
+#define DEFAULT_CONTAINER_NAME DEFAULT_HOSTNAME
+#endif
+
     const char *target_hostname = strlen(hostname) > 0 ? hostname : DEFAULT_CONTAINER_NAME;
 
     if (sethostname(target_hostname, strlen(target_hostname)) != 0)
@@ -78,6 +84,7 @@ int isolate_fs(const char *rootfs_path)
         exit(EXIT_FAILURE);
 
     printf("[Container] Filesystem isolated securely.\n");
+    return F_OK; // Added missing return statement
 }
 
 /*
@@ -140,39 +147,47 @@ int mkdir_procfs(void)
 /*
     Run shell
 */
-int run_shell(void)
+int run_shell(const char *interactive_shell)
 {
-    char *cmd[] = {"/bin/sh", NULL};
+    // Cast to remove const warning for execvp
+    char *cmd[] = {(char *)interactive_shell, NULL};
     execvp(cmd[0], cmd);
+
+    return F_NOK; // Reached only if execvp fails
 }
 
+/*
+    Main entry to container runtime
+*/
 int main(int argc, char **argv)
 {
-    run_cli();
+    // Pass args to the CLI parser
+    run_cli(argc, argv);
 
-    if (load_config(config_path) != 0)
+    // Pass the global_config struct to be populated
+    if (load_config(config_path, &global_config) != 0)
     {
         fprintf(stderr, "Failed to load configuration. Exiting.\n");
         return EXIT_FAILURE;
     }
 
-    if (!verify_stack_size(config.stack_size))
+    // Reference the global struct
+    if (!verify_stack_size(global_config.stack_size))
     {
         fprintf(stderr, "Not valid stack size\n");
         return EXIT_FAILURE;
     }
 
-    char *stack = malloc(config.stack_size);
+    // Allocate stack using global struct
+    char *stack = malloc(global_config.stack_size);
     if (!stack)
     {
         perror("malloc failed");
         return EXIT_FAILURE;
     }
 
-    int child_pid = clone(container_main,
-                          stack + config.stack_size,
-                          CLONE_FLAG | SIGCHLD,
-                          &config);
+    // Pass the populated global_config to the child process
+    int child_pid = clone(container_main, stack + global_config.stack_size, CLONE_FLAG | SIGCHLD, &global_config);
 
     if (child_pid == -1)
     {
