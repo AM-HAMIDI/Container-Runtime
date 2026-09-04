@@ -6,25 +6,29 @@
 #include <string.h>
 #include <linux/limits.h>
 
+int verify_stack_size(int stack_size)
+{
+}
+
 int verify_rootfs(const char *rootfs_path)
 {
     struct stat s;
 
-    // 1. Check if path exists and we can access it
+    // Check if path exists and we can access it
     if (stat(rootfs_path, &s) != 0)
     {
         perror("[Verifier] RootFS path does not exist or is inaccessible");
         return -1;
     }
 
-    // 2. Check if it's actually a directory
+    // Check if it's actually a directory
     if (!S_ISDIR(s.st_mode))
     {
         fprintf(stderr, "[Verifier] RootFS path is not a directory.\n");
         return -1;
     }
 
-    // 3. Security: Prevent accidentally using the host's actual root "/"
+    // Security: Prevent accidentally using the host's actual root "/"
     // We use realpath() to resolve any "../" or symlinks to their absolute path
     char resolved_path[PATH_MAX];
     if (realpath(rootfs_path, resolved_path) != NULL)
@@ -36,9 +40,8 @@ int verify_rootfs(const char *rootfs_path)
         }
     }
 
-    // 4. Viability: Does the target executable exist?
+    // Viability: Does the target executable exist?
     // Since our runtime currently hardcodes "/bin/sh", we must ensure it is there and executable.
-    // In a fully dynamic runtime, you would check for the entrypoint defined in your JSON.
     char sh_path[PATH_MAX];
     snprintf(sh_path, sizeof(sh_path), "%s/bin/sh", rootfs_path);
 
@@ -55,8 +58,15 @@ int verify_rootfs(const char *rootfs_path)
 
 int check_rootfs_security(const char *rootfs_path)
 {
+    return 0;
 }
 
 int verify_visibility(const char *rootfs_path)
 {
+    return 0;
+}
+
+int verify_procfs(void)
+{
+    return 0;
 }
