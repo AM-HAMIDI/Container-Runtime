@@ -8,5 +8,6 @@ typedef struct
 } container_config;
 
 int load_config(const char *filename, container_config *config);
+int write_config(const char *filename, container_config *config);
 
 #endif

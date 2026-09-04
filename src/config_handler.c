@@ -41,3 +41,8 @@ int load_config(const char *filename, container_config *config)
 
     return 0;
 }
+
+int write_config(const char *filename, container_config *config)
+{
+    return 0;
+}

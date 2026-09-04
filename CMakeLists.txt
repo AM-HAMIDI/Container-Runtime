@@ -17,8 +17,8 @@ add_executable(${PROJECT_NAME}
 )
 
 # =========== Definitions ===========
-set(DEFAULT_CONFIG_FILE "config.json" CACHE STRING "Default path to the container config file")
-set(DEFAULT_CONFIG_PATH "${CMAKE_CURRENT_SOURCE_DIR}/config/${DEFAULT_CONFIG_FILE}")
+set(DEFAULT_CONFIG_FILE "config.json" CACHE STRING "Default container config file name")
+set(DEFAULT_CONFIG_PATH "${CMAKE_CURRENT_SOURCE_DIR}/config/${DEFAULT_CONFIG_FILE}" CACHE STRING "Default path to the container config file")
 set(DEFAULT_CONTAINER_NAME "default_container" CACHE STRING "Default hostname if not provided")
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
