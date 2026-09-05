@@ -34,7 +34,6 @@ typedef enum
 extern short relative_path_enabled;
 
 void run_cli(int argc, char **argv);
-void set_config_path(const char *config_path);
 void enable_relative_path(void);
 void run_help(void);
 

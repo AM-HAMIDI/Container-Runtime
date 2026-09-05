@@ -25,9 +25,8 @@ typedef struct
 extern char *config_path;
 extern container_config global_config;
 
-void set_config_file(char *file_name);
-
-int load_config(const char *filename, container_config *config);
-int write_config(const char *filename, container_config *config);
+void set_config_file(char *file_path);
+int load_config(const char *file_path, container_config *config);
+int write_config(const char *file_path, container_config *config);
 
 #endif

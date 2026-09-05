@@ -6,18 +6,17 @@
 char *config_path = "";
 container_config global_config = {0};
 
-void set_config_file(char *file_name)
+void set_config_file(char *file_path)
 {
-    config_path = file_name;
+    config_path = file_path;
 }
 
-int load_config(const char *filename, container_config *config)
+int load_config(const char *file_path, container_config *config)
 {
-    // Parse the file into a JSON object
-    struct json_object *parsed_json = json_object_from_file(filename);
+    struct json_object *parsed_json = json_object_from_file(file_path);
     if (parsed_json == NULL)
     {
-        fprintf(stderr, "Failed to parse JSON file or file not found: %s\n", filename);
+        fprintf(stderr, "Failed to parse JSON file or file not found: %s\n", file_path);
         return -1;
     }
 
@@ -72,9 +71,8 @@ int load_config(const char *filename, container_config *config)
     return 0;
 }
 
-int write_config(const char *filename, container_config *config)
+int write_config(const char *file_path, container_config *config)
 {
-    // Create a new JSON object
     struct json_object *root = json_object_new_object();
     if (!root)
     {
@@ -82,21 +80,20 @@ int write_config(const char *filename, container_config *config)
         return -1;
     }
 
-    // Add fields from the struct to the JSON object
+    // Add fields
     json_object_object_add(root, FILED_HOSTNAME, json_object_new_string(config->hostname));
     json_object_object_add(root, FILED_ROOTFS_PATH, json_object_new_string(config->rootfs_path));
     json_object_object_add(root, FILED_INTERACTIVE_SHELL, json_object_new_string(config->interactive_shell));
     json_object_object_add(root, FILED_STACK_SIZE, json_object_new_int64(config->stack_size));
 
     // Write the JSON object to the specified file
-    if (json_object_to_file_ext(filename, root, JSON_C_TO_STRING_PRETTY) < 0)
+    if (json_object_to_file_ext(file_path, root, JSON_C_TO_STRING_PRETTY) < 0)
     {
-        fprintf(stderr, "Failed to write config to %s\n", filename);
-        json_object_put(root); // Free memory before returning
+        fprintf(stderr, "Failed to write config to %s\n", file_path);
+        json_object_put(root);
         return -1;
     }
 
-    // Free the memory allocated by the json-c library
     json_object_put(root);
     return 0;
 }

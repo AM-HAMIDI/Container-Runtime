@@ -8,7 +8,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 
-#include "cli.h" // Added missing cli.h
+#include "cli.h"
 #include "config_manager.h"
 #include "typedefs.h"
 #include "verifier.h"
@@ -31,13 +31,10 @@ int container_main(void *arg)
 {
     container_config *config = (container_config *)arg;
 
-    // 1 - Set a hostname for current container
     set_hostname(config->hostname);
 
-    // 2 - Isolate filesystem
     isolate_fs(config->rootfs_path);
 
-    // 3 - Run new shell
     run_shell(config->interactive_shell);
 
     perror("execvp failed");
@@ -49,12 +46,7 @@ int container_main(void *arg)
 */
 int set_hostname(const char *hostname)
 {
-// Fallback to DEFAULT_HOSTNAME defined in config_manager.h if CMake definition is missing
-#ifndef DEFAULT_CONTAINER_NAME
-#define DEFAULT_CONTAINER_NAME DEFAULT_HOSTNAME
-#endif
-
-    const char *target_hostname = strlen(hostname) > 0 ? hostname : DEFAULT_CONTAINER_NAME;
+    const char *target_hostname = strlen(hostname) > 0 ? hostname : DEFAULT_HOSTNAME;
 
     if (sethostname(target_hostname, strlen(target_hostname)) != 0)
     {
@@ -66,8 +58,8 @@ int set_hostname(const char *hostname)
 }
 
 /*
-    This function will isolate what filesystem can read/write on the
-    host system.
+    This function will isolate what files filesystem can read/write on them
+    in host system.
 */
 int isolate_fs(const char *rootfs_path)
 {
@@ -84,7 +76,7 @@ int isolate_fs(const char *rootfs_path)
         exit(EXIT_FAILURE);
 
     printf("[Container] Filesystem isolated securely.\n");
-    return F_OK; // Added missing return statement
+    return F_OK;
 }
 
 /*
@@ -153,7 +145,7 @@ int run_shell(const char *interactive_shell)
     char *cmd[] = {(char *)interactive_shell, NULL};
     execvp(cmd[0], cmd);
 
-    return F_NOK; // Reached only if execvp fails
+    return F_NOK;
 }
 
 /*
