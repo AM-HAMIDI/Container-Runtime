@@ -53,7 +53,7 @@ BOOL load_config()
     else
     {
         fprintf(stderr, "Warning: 'rootfs_path' key missing in config.json\n");
-        return FALSE;
+        strncpy(global_config->rootfs_path, DEFAULT_ROOTFS_PATH, sizeof(global_config->rootfs_path) - 1);
     }
 
     // Extract the "interactive_shell" string

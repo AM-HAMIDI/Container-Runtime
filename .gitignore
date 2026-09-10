@@ -2,7 +2,6 @@
 
 .vscode/*
 output/*
-educational/*
 build/*
 rootfs/*
 config/*

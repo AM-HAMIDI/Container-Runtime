@@ -14,7 +14,7 @@
 #include "typedefs.h"
 #include "verifier.h"
 
-#define CLONE_FLAG (CLONE_NEWPID | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER)
+#define CLONE_FLAG (CLONE_NEWPID | CLONE_NEWUTS | CLONE_NEWNS)
 
 int container_main(void *arg);
 BOOL set_hostname(const char *hostname);
@@ -110,6 +110,7 @@ BOOL mount_rootfs(void)
 */
 BOOL chroot_fs(const char *rootfs_path)
 {
+    printf("passed rootfs_path is : %s\n" , rootfs_path);
     if (chroot(rootfs_path) != 0)
     {
         perror("[Container] chroot failed");
@@ -193,7 +194,7 @@ int main(int argc, char **argv)
     }
 
     int child_pid = clone(container_main, stack + global_config->stack_size,
-                           CLONE_FLAG | SIGCHLD, &global_config);
+                           CLONE_FLAG | SIGCHLD, global_config);
 
     if (child_pid == -1)
     {
