@@ -10,6 +10,7 @@ typedef struct
     char hostname[256];
     char rootfs_path[1024];
     char interactive_shell[256];
+    long memory_limit_bytes;
     long stack_size;
 } container_config;
 
@@ -18,7 +19,6 @@ extern char *global_config_path;
 extern container_config* global_config;
 
 void initialize_config_manager(char* filepath);
-void set_config_file_path(char *file_path);
 BOOL load_config();
 void finish_config_manager();
 

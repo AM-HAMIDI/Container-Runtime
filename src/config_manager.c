@@ -68,7 +68,19 @@ BOOL load_config()
         strncpy(global_config->interactive_shell , DEFAULT_INTERACTIVE_SHELL , sizeof(global_config->interactive_shell) - 1);
     }
 
-    // Extract the "stack size" int
+    // Extract the "memory limit bytes" long
+    if (json_object_object_get_ex(parsed_json, FILED_MEMORY_LIMIT, &stack_size))
+    {
+        global_config->memory_limit_bytes = json_object_get_int64(stack_size); // Use int64 for large memory limit sizes
+    }
+    else
+    {
+        fprintf(stderr, "Warning: 'memory limit bytes' key missing in config.json.\n");
+        printf("using default memory limit\n");
+        global_config->memory_limit_bytes = DEFAULT_MEMORY_LIMIT;
+    }
+
+    // Extract the "stack size" long
     if (json_object_object_get_ex(parsed_json, FILED_STACK_SIZE, &stack_size))
     {
         global_config->stack_size = json_object_get_int64(stack_size); // Use int64 for large stack sizes
