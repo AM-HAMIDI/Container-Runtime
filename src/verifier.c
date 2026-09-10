@@ -1,4 +1,5 @@
 #include "verifier.h"
+#include "config_typedefs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -6,67 +7,166 @@
 #include <string.h>
 #include <linux/limits.h>
 
-int verify_stack_size(int stack_size)
+const char *const insecure_paths[] = {
+    "/",
+    "/bin",
+    "/boot",
+    "/dev",
+    "/etc",
+    "/home",
+    "/lib",
+    "/lib64",
+    "/proc",
+    "/root",
+    "/sbin",
+    "/sys",
+    "/usr",
+    "/var",
+};
+
+const size_t insecure_paths_count = sizeof(insecure_paths) / sizeof(insecure_paths[0]);
+
+
+BOOL verify_config(int stack_size , const char* rootfs_path , const char* interactive_shell)
 {
+    if (!verify_stack_size(stack_size))
+    {
+        fprintf(stderr, "Invalid stack size.\n");
+        return FALSE;
+    }
+
+    if (!verify_rootfs(rootfs_path , interactive_shell))
+    {
+        fprintf(stderr, "RootFS verification failed.\n");
+        return FALSE;
+    }
+
+    if (!verify_procfs())
+    {
+        fprintf(stderr, "Host procfs verification failed.\n");
+        return FALSE;
+    }
+
+    return TRUE;
 }
 
-int verify_rootfs(const char *rootfs_path)
+BOOL verify_stack_size(int stack_size)
+{
+    if (stack_size <= 0)
+    {
+        fprintf(stderr, "[Verifier] Stack size must be positive (got %d).\n", stack_size);
+        return FALSE;
+    }
+
+    if (stack_size < MIN_STACK_SIZE)
+    {
+        fprintf(stderr, "[Verifier] Stack size %d bytes is below the minimum of %d bytes.\n",
+                stack_size, MIN_STACK_SIZE);
+        return FALSE;
+    }
+
+    if (stack_size > MAX_STACK_SIZE)
+    {
+        fprintf(stderr, "[Verifier] Stack size %d bytes exceeds the sanity limit of %d bytes.\n",
+                stack_size, MAX_STACK_SIZE);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+BOOL verify_rootfs(const char *rootfs_path , const char* interactive_shell)
 {
     struct stat s;
+
+    // Check if path is empty
+    if (rootfs_path == NULL || strlen(rootfs_path) == 0)
+    {
+        fprintf(stderr, "[Verifier] RootFS path is empty.\n");
+        return FALSE;
+    }
 
     // Check if path exists and we can access it
     if (stat(rootfs_path, &s) != 0)
     {
         perror("[Verifier] RootFS path does not exist or is inaccessible");
-        return -1;
+        return FALSE;
     }
 
     // Check if it's actually a directory
     if (!S_ISDIR(s.st_mode))
     {
         fprintf(stderr, "[Verifier] RootFS path is not a directory.\n");
-        return -1;
+        return FALSE;
     }
 
-    // Security: Prevent accidentally using the host's actual root "/"
-    // We use realpath() to resolve any "../" or symlinks to their absolute path
+    // Security: reject host system directories (including "/")
+    if (!check_rootfs_security(rootfs_path))
+        return FALSE;
+
+    // Viability: does it have what the container needs to boot?
+    if (!verify_visibility(rootfs_path , interactive_shell))
+        return FALSE;
+
+    printf("[Verifier] RootFS passed sanity checks: %s\n", rootfs_path);
+    return TRUE;
+}
+
+BOOL check_rootfs_security(const char *rootfs_path)
+{
     char resolved_path[PATH_MAX];
-    if (realpath(rootfs_path, resolved_path) != NULL)
+
+    if (realpath(rootfs_path, resolved_path) == NULL)
     {
-        if (strcmp(resolved_path, "/") == 0)
+        perror("[Verifier] Failed to resolve RootFS path");
+        return FALSE;
+    }
+
+    for (size_t i = 0; i < insecure_paths_count; i++)
+    {
+        if (strcmp(resolved_path, insecure_paths[i]) == 0)
         {
-            fprintf(stderr, "[Verifier] Security Error: RootFS cannot be the host's root directory!\n");
-            return -1;
+            fprintf(stderr,
+                    "[Verifier] Security Error: '%s' is a protected host directory and cannot be used as RootFS.\n",
+                    resolved_path);
+            return FALSE;
         }
     }
 
-    // Viability: Does the target executable exist?
-    // Since our runtime currently hardcodes "/bin/sh", we must ensure it is there and executable.
-    char sh_path[PATH_MAX];
-    snprintf(sh_path, sizeof(sh_path), "%s/bin/sh", rootfs_path);
+    return TRUE;
+}
 
-    // access(..., X_OK) checks if the file exists AND has execute permissions
+BOOL verify_visibility(const char *rootfs_path , const char* interactive_shell)
+{
+    char sh_path[PATH_MAX];
+    int written = snprintf(sh_path, sizeof(sh_path), "%s/%s", rootfs_path , interactive_shell);
+
+    if (written < 0 || (size_t)written >= sizeof(sh_path))
+    {
+        fprintf(stderr, "[Verifier] RootFS path is too long.\n");
+        return FALSE;
+    }
+
     if (access(sh_path, X_OK) != 0)
     {
         fprintf(stderr, "[Verifier] RootFS is missing or cannot execute essential binary: %s\n", sh_path);
-        return -1;
+        return FALSE;
     }
 
-    printf("[Verifier] RootFS passed sanity checks: %s\n", resolved_path);
-    return 0;
+    return TRUE;
 }
 
-int check_rootfs_security(const char *rootfs_path)
+BOOL verify_procfs(void)
 {
-    return 0;
-}
+    // Sanity-check that the host kernel exposes procfs before we rely on
+    // being able to mount it inside the container later.
+    struct stat s;
 
-int verify_visibility(const char *rootfs_path)
-{
-    return 0;
-}
+    if (stat("/proc/self", &s) != 0)
+    {
+        fprintf(stderr, "[Verifier] Host /proc is unavailable; cannot guarantee procfs support inside the container.\n");
+        return FALSE;
+    }
 
-int verify_procfs(void)
-{
-    return 0;
+    return TRUE;
 }

@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 
@@ -13,16 +14,16 @@
 #include "typedefs.h"
 #include "verifier.h"
 
-#define CLONE_FLAG CLONE_NEWPID | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER
+#define CLONE_FLAG (CLONE_NEWPID | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER)
 
 int container_main(void *arg);
-int set_hostname(const char *hostname);
-int isolate_fs(const char *rootfs_path);
-int mount_rootfs(void);
-int chroot_fs(const char *rootfs_path);
-int chdir_fs(void);
-int mkdir_procfs(void);
-int run_shell(const char *interactive_shell);
+BOOL set_hostname(const char *hostname);
+BOOL isolate_fs(const char *rootfs_path);
+BOOL mount_rootfs(void);
+BOOL chroot_fs(const char *rootfs_path);
+BOOL chdir_fs(void);
+BOOL mkdir_procfs(void);
+BOOL run_shell(const char *interactive_shell);
 
 /*
     Container main start point
@@ -31,121 +32,137 @@ int container_main(void *arg)
 {
     container_config *config = (container_config *)arg;
 
-    set_hostname(config->hostname);
+    if (!set_hostname(config->hostname))
+    {
+        fprintf(stderr, "[Container] Failed to set hostname. Aborting.\n");
+        exit(EXIT_FAILURE);
+    }
 
-    isolate_fs(config->rootfs_path);
+    if (!isolate_fs(config->rootfs_path))
+    {
+        fprintf(stderr, "[Container] Failed to isolate filesystem. Aborting.\n");
+        exit(EXIT_FAILURE);
+    }
 
     run_shell(config->interactive_shell);
 
-    perror("execvp failed");
-    return -1;
+    perror("[Container] execvp failed");
+    exit(EXIT_FAILURE);
 }
 
 /*
-    Function to set a hostname for container
+    Set the container's hostname (falls back to DEFAULT_HOSTNAME).
 */
-int set_hostname(const char *hostname)
+BOOL set_hostname(const char *hostname)
 {
-    const char *target_hostname = strlen(hostname) > 0 ? hostname : DEFAULT_HOSTNAME;
+    const char *target_hostname =
+        (hostname != NULL && strlen(hostname) > 0) ? hostname : DEFAULT_HOSTNAME;
 
     if (sethostname(target_hostname, strlen(target_hostname)) != 0)
     {
-        perror("sethostname failed");
-        return -1;
+        perror("[Container] sethostname failed");
+        return FALSE;
     }
+
     printf("[Container] Hostname set to: %s\n", target_hostname);
-    return 0;
+    return TRUE;
 }
 
 /*
-    This function will isolate what files filesystem can read/write on them
-    in host system.
+    Isolate what the container's filesystem can read/write relative to
+    the host system.
 */
-int isolate_fs(const char *rootfs_path)
+BOOL isolate_fs(const char *rootfs_path)
 {
     if (!mount_rootfs())
-        exit(EXIT_FAILURE);
+        return FALSE;
 
     if (!chroot_fs(rootfs_path))
-        exit(EXIT_FAILURE);
+        return FALSE;
 
     if (!chdir_fs())
-        exit(EXIT_FAILURE);
+        return FALSE;
 
     if (!mkdir_procfs())
-        exit(EXIT_FAILURE);
+        return FALSE;
 
     printf("[Container] Filesystem isolated securely.\n");
-    return F_OK;
+    return TRUE;
 }
 
 /*
-    Remount the root filesystem as Private.
+    Remount "/" as private+recursive so mount/unmount events don't
+    propagate to or from the host.
 */
-int mount_rootfs(void)
+BOOL mount_rootfs(void)
 {
     if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) != 0)
     {
-        perror("mount / as private failed");
-        return F_NOK;
+        perror("[Container] mount / as private failed");
+        return FALSE;
     }
 
-    return F_OK;
+    return TRUE;
 }
 
 /*
-    chroot into the provided rootfs path
+    chroot into the provided rootfs path.
 */
-int chroot_fs(const char *rootfs_path)
+BOOL chroot_fs(const char *rootfs_path)
 {
     if (chroot(rootfs_path) != 0)
     {
-        perror("chroot failed");
-        return F_NOK;
+        perror("[Container] chroot failed");
+        return FALSE;
     }
 
-    return F_OK;
+    return TRUE;
 }
 
 /*
-    Update the current working directory to the new root
+    Update cwd to the new root.
 */
-int chdir_fs(void)
+BOOL chdir_fs(void)
 {
     if (chdir("/") != 0)
     {
-        perror("chdir failed");
-        return F_NOK;
+        perror("[Container] chdir failed");
+        return FALSE;
     }
 
-    return F_OK;
+    return TRUE;
 }
 
 /*
     Mount the proc filesystem.
 */
-int mkdir_procfs(void)
+BOOL mkdir_procfs(void)
 {
-    mkdir("/proc", 0555);
-    if (mount("proc", "/proc", "proc", 0, NULL) != 0)
+    if (mkdir("/proc", 0555) != 0 && errno != EEXIST)
     {
-        perror("mount procfs failed");
-        return F_NOK;
+        perror("[Container] mkdir /proc failed");
+        return FALSE;
     }
 
-    return F_OK;
+    if (mount("proc", "/proc", "proc", 0, NULL) != 0)
+    {
+        perror("[Container] mount procfs failed");
+        return FALSE;
+    }
+
+    return TRUE;
 }
 
 /*
-    Run shell
+    Run the interactive shell, replacing the current process image.
 */
-int run_shell(const char *interactive_shell)
+BOOL run_shell(const char *interactive_shell)
 {
-    // Cast to remove const warning for execvp
     char *cmd[] = {(char *)interactive_shell, NULL};
     execvp(cmd[0], cmd);
 
-    return F_NOK;
+    // Only reached if execvp failed.
+    return FALSE;
 }
 
 /*
@@ -153,33 +170,30 @@ int run_shell(const char *interactive_shell)
 */
 int main(int argc, char **argv)
 {
-    // Pass args to the CLI parser
     run_cli(argc, argv);
 
-    // Pass the global_config struct to be populated
-    if (load_config(config_path, &global_config) != 0)
+    if (load_config() == FALSE)
     {
         fprintf(stderr, "Failed to load configuration. Exiting.\n");
         return EXIT_FAILURE;
     }
 
-    // Reference the global struct
-    if (!verify_stack_size(global_config.stack_size))
+    if(!verify_config(global_config->stack_size , global_config->rootfs_path ,
+         global_config->interactive_shell))
     {
-        fprintf(stderr, "Not valid stack size\n");
+        fprintf(stderr , "Config verification failed!\n");
         return EXIT_FAILURE;
     }
 
-    // Allocate stack using global struct
-    char *stack = malloc(global_config.stack_size);
+    char *stack = malloc(global_config->stack_size);
     if (!stack)
     {
         perror("malloc failed");
         return EXIT_FAILURE;
     }
 
-    // Pass the populated global_config to the child process
-    int child_pid = clone(container_main, stack + global_config.stack_size, CLONE_FLAG | SIGCHLD, &global_config);
+    int child_pid = clone(container_main, stack + global_config->stack_size,
+                           CLONE_FLAG | SIGCHLD, &global_config);
 
     if (child_pid == -1)
     {

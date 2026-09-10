@@ -1,10 +1,10 @@
 #pragma once
 
-#define TRUE 1
-#define FALSE 0
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 
-#define F_OK TRUE
-#define F_NOK FALSE
+typedef enum { FALSE = 0, TRUE = 1 } BOOL;
 
 #define PERMISSION_EXECUTE
 #define PERMISSION_READ
@@ -16,3 +16,4 @@
 #define MESSAGE_START_CHILD_PROCESS_ERROR
 #define MESSAGE_USER_ACCESS_ERROR
 #define MESSAGE_STACK_ALLOCATION_ERROR
+

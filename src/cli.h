@@ -5,10 +5,10 @@
 
 typedef enum
 {
-    SET_CONFIG_PATH,
-    DEFAULT_CONFIG_PATH,
-    USE_RELATIVE_PATH,
-    HELP
+    CLI_OPT_SET_CONFIG_PATH,
+    CLI_OPT_DEFAULT_CONFIG_PATH,
+    CLI_OPT_USE_RELATIVE_PATH,
+    CLI_OPT_HELP
 } cli_options;
 
 #define CLI_OPTIONS_SHORT_SET_CONFIG_PATH "-s"
@@ -26,15 +26,15 @@ typedef enum
 
 #define CLI_MESSAGE_SET_CONFIG_PATH "set config path"
 #define CLI_MESSAGE_DEFAULT_CONFIG_PATH "use default config path"
-#define CLI_MESSAGE_USE_RELATIVE_PATH "use relative path"
+#define CLI_MESSAGE_USE_RELATIVE_PATH "resolve rootfs_path relative to PATH using realpath"
 #define CLI_MESSAGE_HELP "help"
 
 #define CLI_MESSAGE(OPTION) CLI_MESSAGE_##OPTION
 
-extern short relative_path_enabled;
+extern char relative_path_base[PATH_MAX];
 
 void run_cli(int argc, char **argv);
-void enable_relative_path(void);
+void resolve_relative_path(const char *path);
 void run_help(void);
 
 #endif // CLI_H
