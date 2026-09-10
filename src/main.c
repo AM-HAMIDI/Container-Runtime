@@ -13,6 +13,7 @@
 #include "config_manager.h"
 #include "typedefs.h"
 #include "verifier.h"
+#include "cgroups.h"
 
 #define CLONE_FLAG (CLONE_NEWPID | CLONE_NEWUTS | CLONE_NEWNS)
 
@@ -203,6 +204,11 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    if (!setup_cgroups(global_config->hostname, child_pid, global_config->memory_limit_bytes))
+    {
+        fprintf(stderr, "[Host] Warning: Failed to apply cgroups.\n");
+    }
+    
     waitpid(child_pid, NULL, 0);
     printf("[Host] Container exited.\n");
 

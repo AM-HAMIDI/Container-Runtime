@@ -18,6 +18,7 @@ add_executable(${PROJECT_NAME}
     src/cli.c
     src/config_manager.c
     src/verifier.c
+    src/cgroups.c
 )
 
 # =========== Definitions ===========
