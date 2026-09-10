@@ -19,6 +19,7 @@ add_executable(${PROJECT_NAME}
     src/config_manager.c
     src/verifier.c
     src/cgroups.c
+    src/userns.c
 )
 
 # =========== Definitions ===========

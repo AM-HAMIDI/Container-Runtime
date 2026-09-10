@@ -14,13 +14,16 @@
 #include "typedefs.h"
 #include "verifier.h"
 #include "cgroups.h"
+#include "userns.h"
 
-#define CLONE_FLAG (CLONE_NEWPID | CLONE_NEWUTS | CLONE_NEWNS)
+#define CLONE_FLAG (CLONE_NEWPID | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER)
+
+int sync_pipe[2];
 
 int container_main(void *arg);
 BOOL set_hostname(const char *hostname);
 BOOL isolate_fs(const char *rootfs_path);
-BOOL mount_rootfs(void);
+BOOL mount_rootfs(const char *rootfs_path);
 BOOL chroot_fs(const char *rootfs_path);
 BOOL chdir_fs(void);
 BOOL mkdir_procfs(void);
@@ -33,6 +36,27 @@ int container_main(void *arg)
 {
     container_config *config = (container_config *)arg;
 
+    // IPC PIPELINE
+    char signal;
+    close(sync_pipe[1]); // Close the write end of the pipe in the child
+    
+    // read() will block and pause the process here until the parent writes to the pipe
+    if (read(sync_pipe[0], &signal, 1) != 1) {
+        fprintf(stderr, "[Container] Failed to synchronize with parent.\n");
+        exit(EXIT_FAILURE);
+    }
+    close(sync_pipe[0]); // Close the read end, we are done with it
+    printf("[Container] Received green light from host. Booting...\n");
+
+    if (setgid(0) != 0) {
+        perror("[Container] setgid failed");
+        exit(EXIT_FAILURE);
+    }
+    if (setuid(0) != 0) {
+        perror("[Container] setuid failed");
+        exit(EXIT_FAILURE);
+    }
+    
     if (!set_hostname(config->hostname))
     {
         fprintf(stderr, "[Container] Failed to set hostname. Aborting.\n");
@@ -75,7 +99,7 @@ BOOL set_hostname(const char *hostname)
 */
 BOOL isolate_fs(const char *rootfs_path)
 {
-    if (!mount_rootfs())
+    if (!mount_rootfs(rootfs_path))
         return FALSE;
 
     if (!chroot_fs(rootfs_path))
@@ -95,11 +119,19 @@ BOOL isolate_fs(const char *rootfs_path)
     Remount "/" as private+recursive so mount/unmount events don't
     propagate to or from the host.
 */
-BOOL mount_rootfs(void)
+BOOL mount_rootfs(const char *rootfs_path)
 {
-    if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) != 0)
+    // Use NULL instead of "bind" for the filesystem type parameter
+    if (mount(rootfs_path, rootfs_path, NULL, MS_BIND | MS_REC, NULL) != 0)
     {
-        perror("[Container] mount / as private failed");
+        perror("[Container] bind mount rootfs failed");
+        return FALSE;
+    }
+
+    // Make our new isolated mount point private
+    if (mount(NULL, rootfs_path, NULL, MS_PRIVATE | MS_REC, NULL) != 0)
+    {
+        perror("[Container] make rootfs private failed");
         return FALSE;
     }
 
@@ -187,6 +219,12 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    // NEW: Initialize the pipe before cloning
+    if (pipe(sync_pipe) != 0) {
+        perror("pipe failed");
+        return EXIT_FAILURE;
+    }
+
     char *stack = malloc(global_config->stack_size);
     if (!stack)
     {
@@ -204,12 +242,26 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    printf("[Host] Parent Runtime PID: %d\n", getpid());
+    printf("[Host] Spawned Container (Child) PID: %d\n", child_pid);
+
+    close(sync_pipe[0]); // Close the read end of the pipe in the parent
+
     if (!setup_cgroups(global_config->hostname, child_pid, global_config->memory_limit_bytes))
     {
         fprintf(stderr, "[Host] Warning: Failed to apply cgroups.\n");
     }
-    
+
+    setup_user_mapping(child_pid, global_config->rootfs_path);
+
+    if (write(sync_pipe[1], "0", 1) != 1) {
+        fprintf(stderr, "[Host] Failed to signal child process.\n");
+    }
+    close(sync_pipe[1]); // Close the write end
+
     waitpid(child_pid, NULL, 0);
+    cleanup_cgroups(global_config->hostname);
+
     printf("[Host] Container exited.\n");
 
     free(stack);
