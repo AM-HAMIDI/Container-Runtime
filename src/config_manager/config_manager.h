@@ -14,12 +14,13 @@ typedef struct
     long stack_size;
 } container_config;
 
-extern BOOL config_manager_initialized;
+extern BOOL global_config_initialized;
 extern char *global_config_path;
 extern container_config* global_config;
 
 void initialize_config_manager(char* filepath);
+BOOL is_config_initialized(void);
 BOOL load_config();
-void finish_config_manager();
+void clean_config_manager();
 
 #endif

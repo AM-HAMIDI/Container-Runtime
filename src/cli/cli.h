@@ -31,10 +31,8 @@ typedef enum
 
 #define CLI_MESSAGE(OPTION) CLI_MESSAGE_##OPTION
 
-extern char relative_path_base[PATH_MAX];
-
-void run_cli(int argc, char **argv);
-void resolve_relative_path(const char *path);
+BOOL run_cli(int argc, char **argv);
+BOOL resolve_relative_config_path(const char* path);
 void run_help(void);
 
 #endif // CLI_H

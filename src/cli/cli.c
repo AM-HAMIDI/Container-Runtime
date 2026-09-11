@@ -1,76 +1,77 @@
 #include "cli.h"
 #include "config_manager.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-char relative_path_base[PATH_MAX] = {0};
-static BOOL config_path_was_set = FALSE;
-
-void resolve_relative_path(const char *path)
+BOOL resolve_relative_config_path(const char* path)
 {
-    if (realpath(path, relative_path_base) == NULL)
+    char full_path[PATH_MAX];
+    if (realpath(path, full_path) == NULL)
     {
         perror("[CLI] Failed to resolve relative path");
-        exit(EXIT_FAILURE);
+        return FALSE;
     }
 
-    printf("[CLI] Relative path base resolved to: %s\n", relative_path_base);
+    initialize_config_manager(full_path);
+    return TRUE;
 }
 
-void run_cli(int argc, char **argv)
+BOOL run_cli(int argc, char **argv)
 {
     for (int i = 1; i < argc; i++)
     {
+        // Case 1 : Help
         if (strcmp(argv[i], CLI_OPTIONS_SHORT_HELP) == 0 || strcmp(argv[i], CLI_OPTIONS_LONG_HELP) == 0)
         {
             run_help();
-            exit(EXIT_FAILURE);
+            return FALSE;
         }
+        // Case 2 : Set config path
         else if (strcmp(argv[i], CLI_OPTIONS_SHORT_SET_CONFIG_PATH) == 0 || strcmp(argv[i], CLI_OPTIONS_LONG_SET_CONFIG_PATH) == 0)
         {
             if (i + 1 < argc)
             {
                 initialize_config_manager(argv[++i]);
-                config_path_was_set = TRUE;
+                return TRUE;
             }
             else
             {
                 fprintf(stderr, "Error: %s requires a path argument.\n", argv[i]);
-                exit(EXIT_FAILURE);
+                return FALSE;
             }
         }
+        // Case 3 : Set config default path 
         else if (strcmp(argv[i], CLI_OPTIONS_SHORT_DEFAULT_CONFIG_PATH) == 0 || strcmp(argv[i], CLI_OPTIONS_LONG_DEFAULT_CONFIG_PATH) == 0)
         {
             initialize_config_manager(DEFAULT_CONFIG_PATH);
-            config_path_was_set = TRUE;
+            return TRUE;
         }
+        // Case 4 : Set relative path
         else if (strcmp(argv[i], CLI_OPTIONS_SHORT_USE_RELATIVE_PATH) == 0 || strcmp(argv[i], CLI_OPTIONS_LONG_USE_RELATIVE_PATH) == 0)
         {
             if (i + 1 < argc)
             {
-                resolve_relative_path(argv[++i]);
-                initialize_config_manager(relative_path_base);
-                config_path_was_set = TRUE;
+                return resolve_relative_path(argv[++i]);
             }
             else
             {
                 fprintf(stderr, "Error: %s requires a path argument.\n", argv[i]);
-                exit(EXIT_FAILURE);
+                return FALSE;
             }
         }
+        // Case 5 : Unknown option
         else
         {
             fprintf(stderr, "Unknown option: %s\n", argv[i]);
             run_help();
-            exit(EXIT_FAILURE);
+            return FALSE;
         }
     }
 
-    if (!config_path_was_set)
-    {
-        initialize_config_manager(DEFAULT_CONFIG_PATH);
-    }
+    initialize_config_manager(DEFAULT_CONFIG_PATH);
+    return TRUE;
 }
 
 void run_help(void)

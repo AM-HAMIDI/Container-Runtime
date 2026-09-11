@@ -2,20 +2,25 @@
 #include <stdio.h>
 #include <string.h>
 
-BOOL config_manager_initialized = FALSE;
+BOOL global_config_initialized = FALSE;
 char *global_config_path = "";
 container_config *global_config = NULL;
 
 void initialize_config_manager(char* file_path)
 {
-    config_manager_initialized = TRUE;
+    global_config_initialized = TRUE;
     global_config_path = file_path;
     global_config = calloc(1 , sizeof(container_config));
 }
 
+BOOL is_config_initialized(void)
+{
+    return global_config_initialized;
+}
+
 BOOL load_config()
 {
-    if(config_manager_initialized == FALSE)
+    if(global_config_initialized == FALSE)
     {
         fprintf(stderr , "Config manager was not initialized!\n");
         return FALSE;
@@ -98,8 +103,8 @@ BOOL load_config()
     return TRUE;
 }
 
-void finish_config_manager()
+void clean_config_manager()
 {
-    config_manager_initialized = FALSE;
+    global_config_initialized = FALSE;
     free(global_config);
 }

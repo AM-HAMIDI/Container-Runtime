@@ -32,6 +32,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 target_include_directories(${PROJECT_NAME} PRIVATE 
     ${PROJECT_SRC_DIR}
     ${PROJECT_SRC_DIR}/cli
+    ${PROJECT_SRC_DIR}/config_manager
     ${PROJECT_SRC_DIR}/container
     ${PROJECT_SRC_DIR}/debug
     ${PROJECT_SRC_DIR}/verifier

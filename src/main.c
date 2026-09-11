@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 
 #include "cli.h"
+#include "config_manager.h"
 
 int sync_pipe[2];
 
@@ -18,14 +19,12 @@ int sync_pipe[2];
 int main(int argc, char **argv)
 {
     // Step 1 : run cli
-    run_cli(argc, argv);
+    if(!run_cli(argc, argv))
+        exit(EXIT_FAILURE);
 
     // Step 2 : load config
-    if (load_config() == FALSE)
-    {
-        fprintf(stderr, "Failed to load configuration. Exiting.\n");
-        return EXIT_FAILURE;
-    }
+    if(!load_config())
+        exit(EXIT_FAILURE);
 
     // Step 3 : verify config
     if(!verify_config(global_config->stack_size , global_config->rootfs_path ,
