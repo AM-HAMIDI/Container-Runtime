@@ -15,6 +15,6 @@ BOOL setup_cgroups(const char *container_name, int child_pid, long memory_limit_
 /*
     Remove the cgroup directory after the container exits.
 */
-BOOL cleanup_cgroups(const char *container_name);
+BOOL clean_cgroups(const char *container_name);
 
 #endif // CGROUPS_H

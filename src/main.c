@@ -10,6 +10,10 @@
 
 #include "cli.h"
 #include "config_manager.h"
+#include "verifier.h"
+#include "container.h"
+#include "cgroups.h"
+#include "userns.h"
 
 int sync_pipe[2];
 
@@ -29,10 +33,7 @@ int main(int argc, char **argv)
     // Step 3 : verify config
     if(!verify_config(global_config->stack_size , global_config->rootfs_path ,
          global_config->interactive_shell))
-    {
-        fprintf(stderr , "Config verification failed!\n");
-        return EXIT_FAILURE;
-    }
+        exit(EXIT_FAILURE);
 
     // Step 4 : Initialize pipe
     if (pipe(sync_pipe) != 0) {
@@ -49,8 +50,13 @@ int main(int argc, char **argv)
     }
 
     // Step 6 : Clone container process
+    container_process_struct *process_struct = calloc(1 , sizeof(container_process_struct));
+    process_struct->config = global_config;
+    process_struct->sync_pipe[0] = sync_pipe[0];
+    process_struct->sync_pipe[1] = sync_pipe[1];
+    
     int child_pid = clone(container_main, stack + global_config->stack_size,
-                           CLONE_FLAG | SIGCHLD, global_config);
+                           CLONE_FLAG | SIGCHLD, process_struct);
 
     if (child_pid == -1)
     {
@@ -59,27 +65,34 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    // Step 7 : Close read end
     close(sync_pipe[0]);
 
-    // Step 7 : Setup cgroups
+    // Step 8 : Setup cgroups
     if (!setup_cgroups(global_config->hostname, child_pid, global_config->memory_limit_bytes))
     {
         fprintf(stderr, "[Host] Warning: Failed to apply cgroups.\n");
+        exit(EXIT_FAILURE);
     }
 
-    // Step 8 : Setup user mappings
-    setup_user_mapping(child_pid, global_config->rootfs_path);
+    // Step 9 : Setup user mappings
+    if(!setup_user_mapping(child_pid, global_config->rootfs_path))
+    {
+        exit(EXIT_FAILURE);
+    }
 
+    // Step 10 : Write and close the pipe
     if (write(sync_pipe[1], "0", 1) != 1) {
         fprintf(stderr, "[Host] Failed to signal child process.\n");
     }
     close(sync_pipe[1]);
 
-    // Step 9 : Wait for container process and clean cgroups
+    // Step 11 : Wait for container process
     waitpid(child_pid, NULL, 0);
-    cleanup_cgroups(global_config->hostname);
 
-    // Step 10 : free stack
+    // Step 12 : Clean up
+    clean_cgroups(global_config->hostname);
+    clean_config_manager();
     free(stack);
 
     return EXIT_SUCCESS;

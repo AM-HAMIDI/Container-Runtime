@@ -53,7 +53,7 @@ BOOL run_cli(int argc, char **argv)
         {
             if (i + 1 < argc)
             {
-                return resolve_relative_path(argv[++i]);
+                return resolve_relative_config_path(argv[++i]);
             }
             else
             {

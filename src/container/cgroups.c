@@ -70,7 +70,7 @@ BOOL setup_cgroups(const char *container_name, int child_pid, long memory_limit_
     return TRUE;
 }
 
-BOOL cleanup_cgroups(const char *container_name)
+BOOL clean_cgroups(const char *container_name)
 {
     char cgroup_path[PATH_MAX];
     snprintf(cgroup_path, sizeof(cgroup_path), "%s/%s", CGROUP_BASE_PATH, container_name);

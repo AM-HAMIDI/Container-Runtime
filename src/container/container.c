@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/mount.h>
+#include <grp.h>
 
 /*
     Container main start point
@@ -53,6 +54,13 @@ BOOL initialize_IPC_pipeline(container_process_struct* process_struct)
 */
 BOOL set_mappings(void)
 {
+    // // 1. Wipe inherited secondary groups
+    // if (setgroups(0, NULL) != 0)
+    // {
+    //     perror("[Container] setgroups failed");
+    //     return FALSE;
+    // }
+
     // Set gid
     if (setgid(0) != EXIT_SUCCESS) 
     {
@@ -61,7 +69,7 @@ BOOL set_mappings(void)
     }
 
     // Set uid
-    if (setuid(0) != EXIT_FAILURE) 
+    if (setuid(0) != EXIT_SUCCESS) 
     {
         perror("[Container] setuid failed");
         return FALSE;
