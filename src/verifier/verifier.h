@@ -4,12 +4,6 @@
 #include <stddef.h>
 #include "typedefs.h"
 
-/*
-    Host directories that must never be used as a container's RootFS.
-    Defined once in verifier.c; declared here so it isn't duplicated
-    (and doesn't cause a multiple-definition link error) across translation
-    units.
-*/
 extern const char *const insecure_paths[];
 extern const size_t insecure_paths_count;
 

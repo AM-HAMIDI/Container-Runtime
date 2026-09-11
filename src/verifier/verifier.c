@@ -26,28 +26,11 @@ const char *const insecure_paths[] = {
 
 const size_t insecure_paths_count = sizeof(insecure_paths) / sizeof(insecure_paths[0]);
 
-
 BOOL verify_config(int stack_size , const char* rootfs_path , const char* interactive_shell)
 {
-    if (!verify_stack_size(stack_size))
-    {
-        fprintf(stderr, "Invalid stack size.\n");
-        return FALSE;
-    }
-
-    if (!verify_rootfs(rootfs_path , interactive_shell))
-    {
-        fprintf(stderr, "RootFS verification failed.\n");
-        return FALSE;
-    }
-
-    if (!verify_procfs())
-    {
-        fprintf(stderr, "Host procfs verification failed.\n");
-        return FALSE;
-    }
-
-    return TRUE;
+    return verify_stack_size(stack_size) &&
+           verify_rootfs(rootfs_path , interactive_shell) &&
+           verify_procfs();
 }
 
 BOOL verify_stack_size(int stack_size)
@@ -89,14 +72,14 @@ BOOL verify_rootfs(const char *rootfs_path , const char* interactive_shell)
     // Check if path exists and we can access it
     if (stat(rootfs_path, &s) != 0)
     {
-        perror("[Verifier] RootFS path does not exist or is inaccessible");
+        fprintf(stderr , "[Verifier] RootFS path does not exist or is inaccessible.\n");
         return FALSE;
     }
 
     // Check if it's actually a directory
     if (!S_ISDIR(s.st_mode))
     {
-        fprintf(stderr, "[Verifier] RootFS path is not a directory.\n");
+        fprintf(stderr , "[Verifier] RootFS path is not a directory.\n");
         return FALSE;
     }
 
@@ -108,7 +91,6 @@ BOOL verify_rootfs(const char *rootfs_path , const char* interactive_shell)
     if (!verify_visibility(rootfs_path , interactive_shell))
         return FALSE;
 
-    printf("[Verifier] RootFS passed sanity checks: %s\n", rootfs_path);
     return TRUE;
 }
 
@@ -158,8 +140,6 @@ BOOL verify_visibility(const char *rootfs_path , const char* interactive_shell)
 
 BOOL verify_procfs(void)
 {
-    // Sanity-check that the host kernel exposes procfs before we rely on
-    // being able to mount it inside the container later.
     struct stat s;
 
     if (stat("/proc/self", &s) != 0)
