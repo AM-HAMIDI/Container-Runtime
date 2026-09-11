@@ -1,9 +1,9 @@
 #include "container.h"
-#include "typedefs.h"
-#include "cgroups.h"
-#include "userns.h"
-#include <errno.h>
+
 #include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/mount.h>
 
 /*
     Container main start point
@@ -26,14 +26,11 @@ int container_main(void *arg)
 
     // Isolate filesystem
     if (!isolate_fs(process_struct->config->rootfs_path))
-    {
-        fprintf(stderr, "[Container] Failed to isolate filesystem. Aborting.\n");
         exit(EXIT_FAILURE);
-    }
 
-    run_shell(config->interactive_shell);
+    // Run interactive shell
+    run_shell(process_struct->config->interactive_shell);
 
-    perror("[Container] execvp failed");
     exit(EXIT_FAILURE);
 }
 
@@ -98,18 +95,29 @@ BOOL set_hostname(const char *hostname)
 BOOL isolate_fs(const char *rootfs_path)
 {
     if (!mount_rootfs(rootfs_path))
+    {
+        perror("[Container] mount_rootfs failed");
         return FALSE;
+    }
 
     if (!chroot_fs(rootfs_path))
+    {
+        perror("[Container] chroot_fs failed");
         return FALSE;
+    }
 
     if (!chdir_fs())
+    {
+        perror("[Container] chdir_fs failed");
         return FALSE;
+    }
 
     if (!mkdir_procfs())
+    {
+        perror("[Container] mkdir_procfs failed");
         return FALSE;
+    }
 
-    printf("[Container] Filesystem isolated securely.\n");
     return TRUE;
 }
 
@@ -193,6 +201,5 @@ BOOL run_shell(const char *interactive_shell)
     char *cmd[] = {(char *)interactive_shell, NULL};
     execvp(cmd[0], cmd);
 
-    // Only reached if execvp failed.
     return FALSE;
 }
