@@ -15,6 +15,7 @@
 #include "cgroups.h"
 #include "userns.h"
 #include "network.h"
+#include "storage.h"
 
 #define CLONE_FLAG (CLONE_NEWPID | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER | CLONE_NEWNET)
 
@@ -39,7 +40,8 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
 
     // Step 4 : Initialize pipe
-    if (pipe(sync_pipe) != 0) {
+    if (pipe(sync_pipe) != 0) 
+    {
         perror("pipe failed");
         return EXIT_FAILURE;
     }
@@ -101,8 +103,9 @@ int main(int argc, char **argv)
     waitpid(child_pid, NULL, 0);
 
     // Step 13 : Clean up
-    clean_cgroups(global_config->hostname);
     clean_network_host();
+    clean_storage_host();
+    clean_cgroups(global_config->hostname);
     clean_config_manager();
     free(stack);
 

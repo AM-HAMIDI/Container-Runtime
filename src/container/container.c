@@ -1,4 +1,5 @@
 #include "container.h"
+#include "storage.h"
 
 #include <stdio.h>
 #include <errno.h>
@@ -105,14 +106,22 @@ BOOL set_hostname(const char *hostname)
     the host system.
 */
 BOOL isolate_fs(const char *rootfs_path)
-{
+{   
+    char merged_path[1024]; 
+
+    if (!setup_overlayfs(rootfs_path, merged_path))
+    {
+        perror("[Container] overlayFS failed.");
+        return FALSE;
+    }
+
     if (!mount_rootfs(rootfs_path))
     {
         perror("[Container] mount_rootfs failed");
         return FALSE;
     }
 
-    if (!chroot_fs(rootfs_path))
+    if (!chroot_fs(merged_path))
     {
         perror("[Container] chroot_fs failed");
         return FALSE;
