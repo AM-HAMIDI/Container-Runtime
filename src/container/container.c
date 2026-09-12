@@ -1,5 +1,6 @@
 #include "container.h"
 #include "storage.h"
+#include "seccomp.h"
 
 #include <stdio.h>
 #include <errno.h>
@@ -32,6 +33,10 @@ int container_main(void *arg)
 
     // Isolate filesystem
     if (!isolate_fs(process_struct->config->rootfs_path))
+        exit(EXIT_FAILURE);
+
+    // Lock down system calls
+    if (!setup_seccomp())
         exit(EXIT_FAILURE);
 
     // Run interactive shell

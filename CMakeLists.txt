@@ -38,6 +38,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${PROJECT_SRC_DIR}/verifier
     ${PROJECT_SRC_DIR}/network
     ${PROJECT_SRC_DIR}/storage
+    ${PROJECT_SRC_DIR}/seccomp
     ${JSONC_INCLUDE_DIRS}
 )
 
