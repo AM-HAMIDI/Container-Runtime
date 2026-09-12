@@ -14,6 +14,9 @@
 #include "container.h"
 #include "cgroups.h"
 #include "userns.h"
+#include "network.h"
+
+#define CLONE_FLAG (CLONE_NEWPID | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER | CLONE_NEWNET)
 
 int sync_pipe[2];
 
@@ -77,21 +80,29 @@ int main(int argc, char **argv)
 
     // Step 9 : Setup user mappings
     if(!setup_user_mapping(child_pid, global_config->rootfs_path))
-    {
+    {   
+        fprintf(stderr , "[Host] setup user mappings failed.\n");
         exit(EXIT_FAILURE);
     }
 
-    // Step 10 : Write and close the pipe
+    // Step 10 : Setup network host
+    if(!setup_network_host(child_pid)) {
+        fprintf(stderr, "[Host] Failed to setup network.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Step 11 : Write and close the pipe
     if (write(sync_pipe[1], "0", 1) != 1) {
         fprintf(stderr, "[Host] Failed to signal child process.\n");
     }
     close(sync_pipe[1]);
 
-    // Step 11 : Wait for container process
+    // Step 12 : Wait for container process
     waitpid(child_pid, NULL, 0);
 
-    // Step 12 : Clean up
+    // Step 13 : Clean up
     clean_cgroups(global_config->hostname);
+    clean_network_host();
     clean_config_manager();
     free(stack);
 

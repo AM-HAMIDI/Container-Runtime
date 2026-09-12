@@ -17,12 +17,16 @@ int container_main(void *arg)
     if(!initialize_IPC_pipeline(process_struct))
         exit(EXIT_FAILURE);
     
-    // Set mappings
-    if(!set_mappings())
+    // Set privilages
+    if(!set_privilages())
         exit(EXIT_FAILURE);
 
     // Set hostname
     if (!set_hostname(process_struct->config->hostname))
+        exit(EXIT_FAILURE);
+
+    // Set network
+    if (!setup_network_container())
         exit(EXIT_FAILURE);
 
     // Isolate filesystem
@@ -52,7 +56,7 @@ BOOL initialize_IPC_pipeline(container_process_struct* process_struct)
 /*
     Set mappings
 */
-BOOL set_mappings(void)
+BOOL set_privilages(void)
 {
     // // 1. Wipe inherited secondary groups
     // if (setgroups(0, NULL) != 0)
