@@ -36,6 +36,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${PROJECT_SRC_DIR}/container
     ${PROJECT_SRC_DIR}/debug
     ${PROJECT_SRC_DIR}/verifier
+    ${PROJECT_SRC_DIR}/network
     ${JSONC_INCLUDE_DIRS}
 )
 
